@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
-// import { useIframeSdk } from '@whop/react';
 import StockTicker from '@/components/StockTicker';
 import Leaderboard from '@/components/Leaderboard';
 import SubmissionModal from '@/components/SubmissionModal';
@@ -11,10 +10,7 @@ import PersonalPerformanceCard from '@/components/PersonalPerformanceCard';
 import UserMenu from '@/components/UserMenu';
 import PersonalDashboard from '@/components/PersonalDashboard';
 import AdminPanel from '@/components/AdminPanel';
-import LoginPrompt from '@/components/LoginPrompt';
 import FullLeaderboardModal from '@/components/FullLeaderboardModal';
-import { useWhopAuth, type WhopUser } from '@/hooks/useWhopAuth';
-import WhopAuthenticatedApp from '@/components/WhopAuthenticatedApp';
 import { supabase, type Submission, type User } from '@/lib/supabase';
 import { 
   syncWhopUserToDatabase, 
@@ -24,12 +20,22 @@ import {
   getUserPrestigeBadges
 } from '@/lib/user-sync';
 
-export default function Page() {
-  // Use Whop authentication hook
-  const { user: whopUser, isLoading: whopLoading, error: authError, logout: whopLogout } = useWhopAuth();
-  
-  // Check if we're running in Whop iframe context
-  const isWhopIframe = typeof window !== 'undefined' && window.location !== window.parent.location;
+interface WhopAuthenticatedAppProps {
+  whopUser: {
+    id: string;
+    username: string;
+    name: string;
+    profile_image_url?: string;
+  };
+  isAdmin: boolean;
+  companyId?: string;
+}
+
+export default function WhopAuthenticatedApp({ 
+  whopUser, 
+  isAdmin: whopIsAdmin,
+  companyId 
+}: WhopAuthenticatedAppProps) {
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [isSubmissionModalOpen, setIsSubmissionModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -39,18 +45,12 @@ export default function Page() {
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [userRank, setUserRank] = useState(0);
   const [userBadges, setUserBadges] = useState<any[]>([]);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(whopIsAdmin);
   const [showFullLeaderboard, setShowFullLeaderboard] = useState(false);
 
   // Sync Whop user to database and set up user data
   useEffect(() => {
     const setupUser = async () => {
-      if (!whopUser) {
-        setCurrentUser(null);
-        setIsAdmin(false);
-        return;
-      }
-
       try {
         // Create a mock database user for now (since tables might not exist)
         const mockDbUser: User = {
@@ -65,7 +65,7 @@ export default function Page() {
         };
 
         setCurrentUser(mockDbUser);
-        setIsAdmin(false); // Mock admin status
+        setIsAdmin(whopIsAdmin);
         setCurrentSubmission(undefined);
         setUserRank(0);
         setUserBadges([]);
@@ -82,12 +82,11 @@ export default function Page() {
           if (dbUser) {
             setCurrentUser(dbUser);
 
-            // Check if user is admin (community owner)
-            // For now, check if username contains "admin" or "owner" for demo purposes
-            // In production, this would check against actual community ownership
-            const isCommunityOwner = dbUser.username.toLowerCase().includes('admin') || 
-                                    dbUser.username.toLowerCase().includes('owner') ||
-                                    dbUser.username.toLowerCase().includes('mod');
+            // Check if user is admin (community owner or Whop admin)
+            const isCommunityOwner = whopIsAdmin || 
+                                   dbUser.username.toLowerCase().includes('admin') || 
+                                   dbUser.username.toLowerCase().includes('owner') ||
+                                   dbUser.username.toLowerCase().includes('mod');
             setIsAdmin(isCommunityOwner);
 
             // Get user's current submission and rank
@@ -119,12 +118,12 @@ export default function Page() {
           updated_at: new Date().toISOString(),
         };
         setCurrentUser(fallbackUser);
-        setIsAdmin(false);
+        setIsAdmin(whopIsAdmin);
       }
     };
 
     setupUser();
-  }, [whopUser]);
+  }, [whopUser, whopIsAdmin]);
 
   // Fetch leaderboard data
   useEffect(() => {
@@ -285,50 +284,9 @@ export default function Page() {
   };
 
   const handleLogout = () => {
-    // Use Whop logout
-    whopLogout();
-    
-    // Reset user state
-    setCurrentUser(null);
-    setIsAdmin(false);
-    setCurrentSubmission(undefined);
-    setUserRank(0);
-    setUserBadges([]);
+    // For Whop iframe, we can't actually log out, just show a message
+    alert('To log out, please close this tab or navigate away from the Whop experience.');
   };
-
-  // Show loading state
-  if (whopLoading) {
-    return (
-      <div className="min-h-screen bg-robinhood-black flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-8 h-8 border-2 border-robinhood-green border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-robinhood-text-secondary">Loading Pulse Trades...</p>
-        </div>
-      </div>
-    );
-  }
-
-      // Show login prompt if no user
-      if (!whopUser) {
-        return (
-          <LoginPrompt onLogin={() => {}} />
-        );
-      }
-
-      // If we have a whopUser and we're in iframe context, use WhopAuthenticatedApp
-      if (whopUser && isWhopIframe) {
-        return (
-          <WhopAuthenticatedApp
-            whopUser={{
-              id: whopUser.id,
-              username: whopUser.username,
-              name: whopUser.name,
-              profile_image_url: whopUser.profile_image_url,
-            }}
-            isAdmin={false} // Will be determined by the component
-          />
-        );
-      }
 
   return (
     <div className="min-h-screen bg-robinhood-black">
@@ -355,8 +313,8 @@ export default function Page() {
                   onOpenAdminPanel={() => setShowAdminPanel(true)}
                   onLogout={handleLogout}
                 />
-							</div>
-						)}
+              </div>
+            )}
             
             {/* Centered Hero Section */}
             <div className="text-center">
@@ -372,25 +330,25 @@ export default function Page() {
               >
                 View Full Leaderboard
               </button>
-					</div>
-				</div>
-
-              {/* Leaderboard */}
-              {isLoading ? (
-                <div className="flex items-center justify-center py-12">
-                  <div className="text-center">
-                    <div className="w-6 h-6 border-2 border-robinhood-green border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-                    <p className="text-robinhood-text-secondary text-sm">Loading leaderboard...</p>
-                  </div>
-				</div>
-              ) : (
-                <Leaderboard 
-                  submissions={submissions} 
-                  currentUserId={currentUser?.id}
-                />
-              )}
+            </div>
+          </div>
+          
+          {/* Leaderboard */}
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="text-center">
+                <div className="w-6 h-6 border-2 border-robinhood-green border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+                <p className="text-robinhood-text-secondary text-sm">Loading leaderboard...</p>
+              </div>
+            </div>
+          ) : (
+            <Leaderboard 
+              submissions={submissions} 
+              currentUserId={currentUser?.id}
+            />
+          )}
         </motion.div>
-			</div>
+      </div>
       
       {/* Personal Performance Card */}
       <PersonalPerformanceCard
@@ -497,6 +455,6 @@ export default function Page() {
         onClose={() => setShowFullLeaderboard(false)}
         currentUserId={currentUser?.id}
       />
-		</div>
-	);
+    </div>
+  );
 }
