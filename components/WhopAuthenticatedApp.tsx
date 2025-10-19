@@ -158,75 +158,9 @@ export default function WhopAuthenticatedApp({
           setSubmissions(data || []);
           return;
         } catch (dbError) {
-          // Fallback to mock data if database is not set up
-          console.warn('Using mock leaderboard data');
-          const mockSubmissions: Submission[] = [
-            {
-              id: '1',
-              user_id: 'user-1',
-              percentage_gain: 12.5,
-              points: 12,
-              submission_date: new Date().toISOString().split('T')[0],
-              submitted_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-              is_flagged: false,
-              is_verified: true,
-              community_id: 'biz_pGTqes9CAHH9yk',
-              user: {
-                id: 'user-1',
-                whop_user_id: 'whop-1',
-                username: 'crypto_king',
-                avatar_url: undefined,
-                prestige_level: 3,
-                total_wins: 15,
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString(),
-              },
-            },
-            {
-              id: '2',
-              user_id: 'user-2',
-              percentage_gain: 8.7,
-              points: 8,
-              submission_date: new Date().toISOString().split('T')[0],
-              submitted_at: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString(),
-              is_flagged: false,
-              is_verified: true,
-              community_id: 'biz_pGTqes9CAHH9yk',
-              user: {
-                id: 'user-2',
-                whop_user_id: 'whop-2',
-                username: 'stock_master',
-                avatar_url: undefined,
-                prestige_level: 2,
-                total_wins: 8,
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString(),
-              },
-            },
-            {
-              id: '3',
-              user_id: 'user-3',
-              percentage_gain: 5.2,
-              points: 5,
-              submission_date: new Date().toISOString().split('T')[0],
-              submitted_at: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
-              is_flagged: false,
-              is_verified: true,
-              community_id: 'biz_pGTqes9CAHH9yk',
-              user: {
-                id: 'user-3',
-                whop_user_id: 'whop-3',
-                username: 'day_trader',
-                avatar_url: undefined,
-                prestige_level: 1,
-                total_wins: 3,
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString(),
-              },
-            },
-          ];
-          
-          setSubmissions(mockSubmissions);
+          // No mock data - show empty leaderboard if database is not set up
+          console.warn('Database not available, showing empty leaderboard');
+          setSubmissions([]);
         }
         
       } catch (error) {
@@ -248,25 +182,28 @@ export default function WhopAuthenticatedApp({
         throw new Error('User not authenticated');
       }
 
-      // TODO: Implement actual submission logic
-      console.log('Submitting performance:', data);
+      // Submit to API
+      const response = await fetch('/api/submit', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          percentage: data.percentage,
+          // TODO: Handle proof file upload
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Submission failed');
+      }
+
+      const result = await response.json();
       
-      // Mock submission
-      const newSubmission: Submission = {
-        id: Date.now().toString(),
-        user_id: currentUser.id,
-        percentage_gain: data.percentage,
-        points: Math.max(0, Math.floor(data.percentage)),
-        submission_date: new Date().toISOString().split('T')[0],
-        submitted_at: new Date().toISOString(),
-        is_flagged: false,
-        is_verified: true,
-        community_id: 'biz_pGTqes9CAHH9yk',
-        user: currentUser,
-      };
-      
-      setSubmissions(prev => [newSubmission, ...prev]);
-      setCurrentSubmission(newSubmission);
+      // Update local state with the new submission
+      setSubmissions(prev => [result.submission, ...prev]);
+      setCurrentSubmission(result.submission);
       
       // TODO: Upload proof file to Supabase Storage if provided
       if (data.proofFile) {
