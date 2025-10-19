@@ -168,6 +168,8 @@ export default function WhopAuthenticatedApp({
               submission_date: new Date().toISOString().split('T')[0],
               submitted_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
               is_flagged: false,
+              is_verified: true,
+              community_id: 'biz_pGTqes9CAHH9yk',
               user: {
                 id: 'user-1',
                 whop_user_id: 'whop-1',
@@ -187,6 +189,8 @@ export default function WhopAuthenticatedApp({
               submission_date: new Date().toISOString().split('T')[0],
               submitted_at: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString(),
               is_flagged: false,
+              is_verified: true,
+              community_id: 'biz_pGTqes9CAHH9yk',
               user: {
                 id: 'user-2',
                 whop_user_id: 'whop-2',
@@ -206,6 +210,8 @@ export default function WhopAuthenticatedApp({
               submission_date: new Date().toISOString().split('T')[0],
               submitted_at: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
               is_flagged: false,
+              is_verified: true,
+              community_id: 'biz_pGTqes9CAHH9yk',
               user: {
                 id: 'user-3',
                 whop_user_id: 'whop-3',
@@ -253,6 +259,8 @@ export default function WhopAuthenticatedApp({
         submission_date: new Date().toISOString().split('T')[0],
         submitted_at: new Date().toISOString(),
         is_flagged: false,
+        is_verified: true,
+        community_id: 'biz_pGTqes9CAHH9yk',
         user: currentUser,
       };
       

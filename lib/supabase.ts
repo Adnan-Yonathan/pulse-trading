@@ -33,6 +33,8 @@ export interface Submission {
   submission_date: string;
   submitted_at: string;
   is_flagged: boolean;
+  is_verified: boolean;
+  community_id?: string;
   user?: User;
 }
 

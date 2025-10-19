@@ -296,10 +296,38 @@ export default function AdminPanel({ submissions, users, isAdmin }: AdminPanelPr
     window.URL.revokeObjectURL(url);
   };
 
-  const handleResetLeaderboard = async () => {
-    if (confirm('Are you sure you want to reset today\'s leaderboard? This action cannot be undone.')) {
-      // TODO: Implement reset API call
-      console.log('Resetting leaderboard for:', selectedDate);
+  const handleResetLeaderboard = async (resetType: 'community' | 'global') => {
+    const confirmMessage = resetType === 'community' 
+      ? 'Are you sure you want to reset the community leaderboard? This will delete all submissions for your community. This action cannot be undone.'
+      : 'Are you sure you want to reset the GLOBAL leaderboard? This will delete ALL submissions from ALL communities. This action cannot be undone.';
+    
+    if (confirm(confirmMessage)) {
+      try {
+        const response = await fetch('/api/admin/reset-leaderboard', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            resetType,
+            communityId: resetType === 'community' ? 'biz_pGTqes9CAHH9yk' : undefined, // TODO: Get from context
+            resetBy: 'admin' // TODO: Get actual user ID
+          }),
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          alert(`${resetType} leaderboard reset successfully! Deleted ${result.data.deleted_count} submissions.`);
+          // Refresh the page to show updated data
+          window.location.reload();
+        } else {
+          const error = await response.json();
+          alert(`Failed to reset leaderboard: ${error.error}`);
+        }
+      } catch (error) {
+        console.error('Error resetting leaderboard:', error);
+        alert('Failed to reset leaderboard. Please try again.');
+      }
     }
   };
 
@@ -493,13 +521,22 @@ export default function AdminPanel({ submissions, users, isAdmin }: AdminPanelPr
             <h2 className="text-robinhood-h2 text-robinhood-text-primary">
               Submissions Review
             </h2>
-            <button
-              onClick={handleResetLeaderboard}
-              className="flex items-center space-x-2 bg-robinhood-red hover:bg-robinhood-red/90 text-robinhood-text-primary px-4 py-2 rounded-lg font-semibold transition-colors"
-            >
-              <RefreshCw className="w-4 h-4" />
-              <span>Reset Leaderboard</span>
-            </button>
+            <div className="flex items-center space-x-3">
+              <button
+                onClick={() => handleResetLeaderboard('community')}
+                className="flex items-center space-x-2 bg-robinhood-red hover:bg-robinhood-red/90 text-robinhood-text-primary px-4 py-2 rounded-lg font-semibold transition-colors"
+              >
+                <RefreshCw className="w-4 h-4" />
+                <span>Reset Community</span>
+              </button>
+              <button
+                onClick={() => handleResetLeaderboard('global')}
+                className="flex items-center space-x-2 bg-robinhood-red/80 hover:bg-robinhood-red text-robinhood-text-primary px-4 py-2 rounded-lg font-semibold transition-colors border border-robinhood-red"
+              >
+                <RefreshCw className="w-4 h-4" />
+                <span>Reset Global</span>
+              </button>
+            </div>
           </div>
 
           <div className="overflow-x-auto">
