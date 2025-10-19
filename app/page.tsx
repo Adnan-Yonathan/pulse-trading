@@ -48,22 +48,33 @@ export default function Page() {
         // Check if there's a stored username in localStorage
         const storedUsername = localStorage.getItem('pulse-trades-username');
         if (storedUsername) {
-          // Find user in database
-          const { data: user, error } = await supabase
-            .from('users')
-            .select('*')
-            .eq('username', storedUsername)
-            .single();
+          try {
+            // Find user in database with timeout
+            const { data: user, error } = await Promise.race([
+              supabase
+                .from('users')
+                .select('*')
+                .eq('username', storedUsername)
+                .single(),
+              new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Database timeout')), 3000)
+              )
+            ]) as any;
 
-          if (user && !error) {
-            setWhopUser({
-              id: user.whop_user_id,
-              username: user.username,
-              name: user.username,
-              profile_image_url: user.avatar_url,
-            });
-          } else {
-            // User not found, clear stored username
+            if (user && !error) {
+              setWhopUser({
+                id: user.whop_user_id,
+                username: user.username,
+                name: user.username,
+                profile_image_url: user.avatar_url,
+              });
+            } else {
+              // User not found, clear stored username
+              localStorage.removeItem('pulse-trades-username');
+            }
+          } catch (dbError) {
+            console.warn('Database query failed during session check, clearing stored username:', dbError);
+            // Clear stored username if database is not available
             localStorage.removeItem('pulse-trades-username');
           }
         }
@@ -167,18 +178,23 @@ export default function Page() {
       try {
         setIsLoading(true);
         
-        // Try to fetch from database first
+        // Try to fetch from database first with timeout
         try {
           const today = new Date().toISOString().split('T')[0];
           
-          const { data, error } = await supabase
-            .from('submissions')
-            .select(`
-              *,
-              user:users(*)
-            `)
-            .eq('submission_date', today)
-            .order('percentage_gain', { ascending: false });
+          const { data, error } = await Promise.race([
+            supabase
+              .from('submissions')
+              .select(`
+                *,
+                user:users(*)
+              `)
+              .eq('submission_date', today)
+              .order('percentage_gain', { ascending: false }),
+            new Promise((_, reject) => 
+              setTimeout(() => reject(new Error('Database timeout')), 5000)
+            )
+          ]) as any;
 
           if (error) {
             console.warn('Database query failed, using mock data:', error);
@@ -255,14 +271,15 @@ export default function Page() {
         
       } catch (error) {
         console.error('Failed to fetch leaderboard:', error);
+        // Set empty submissions as final fallback
+        setSubmissions([]);
       } finally {
         setIsLoading(false);
       }
     };
 
-    if (currentUser) {
-      fetchLeaderboard();
-    }
+    // Always fetch leaderboard, even without currentUser
+    fetchLeaderboard();
   }, [currentUser]);
 
   const handleSubmitPerformance = async (data: { percentage: number; proofFile?: File }) => {
@@ -318,20 +335,41 @@ export default function Page() {
       // Store username in localStorage for session persistence
       localStorage.setItem('pulse-trades-username', username);
       
-      // Find user in database
-      const { data: user, error } = await supabase
-        .from('users')
-        .select('*')
-        .eq('username', username)
-        .single();
+      // Create a mock user immediately to avoid blocking
+      const mockUser = {
+        id: `local-${Date.now()}`,
+        username: username,
+        name: username,
+        profile_image_url: undefined,
+      };
+      
+      setWhopUser(mockUser);
+      
+      // Try to find user in database in background (non-blocking)
+      try {
+        const { data: user, error } = await Promise.race([
+          supabase
+            .from('users')
+            .select('*')
+            .eq('username', username)
+            .single(),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Database timeout')), 3000)
+          )
+        ]) as any;
 
-      if (user && !error) {
-        setWhopUser({
-          id: user.whop_user_id,
-          username: user.username,
-          name: user.username,
-          profile_image_url: user.avatar_url,
-        });
+        if (user && !error) {
+          // Update with real user data if found
+          setWhopUser({
+            id: user.whop_user_id,
+            username: user.username,
+            name: user.username,
+            profile_image_url: user.avatar_url,
+          });
+        }
+      } catch (dbError) {
+        console.warn('Database query failed during login, using mock user:', dbError);
+        // Continue with mock user
       }
     } catch (error) {
       console.error('Error during login:', error);
@@ -351,15 +389,25 @@ export default function Page() {
     setUserBadges([]);
   };
 
-  // Show loading state
-  if (whopLoading || isLoading) {
-	return (
+  // Show loading state with timeout
+  if (whopLoading) {
+    // Add a timeout to prevent infinite loading
+    setTimeout(() => {
+      if (whopLoading) {
+        setWhopLoading(false);
+      }
+    }, 10000); // 10 second timeout
+    
+    return (
       <div className="min-h-screen bg-robinhood-black flex items-center justify-center">
         <div className="text-center">
           <div className="w-8 h-8 border-2 border-robinhood-green border-t-transparent rounded-full animate-spin mx-auto mb-4" />
           <p className="text-robinhood-text-secondary">Loading Pulse Trades...</p>
+          <p className="text-robinhood-text-secondary text-sm mt-2">
+            If this takes too long, try refreshing the page
+          </p>
         </div>
-				</div>
+      </div>
     );
   }
 
@@ -422,11 +470,20 @@ export default function Page() {
             </div>
 				</div>
 
-          {/* Leaderboard */}
-          <Leaderboard 
-            submissions={submissions} 
-            currentUserId={currentUser?.id}
-          />
+              {/* Leaderboard */}
+              {isLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="text-center">
+                    <div className="w-6 h-6 border-2 border-robinhood-green border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+                    <p className="text-robinhood-text-secondary text-sm">Loading leaderboard...</p>
+                  </div>
+                </div>
+              ) : (
+                <Leaderboard 
+                  submissions={submissions} 
+                  currentUserId={currentUser?.id}
+                />
+              )}
         </motion.div>
 			</div>
       
