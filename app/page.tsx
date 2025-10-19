@@ -198,8 +198,20 @@ export default function Page() {
           className="max-w-4xl mx-auto space-y-6"
         >
           {/* Header */}
-          <div className="flex items-center justify-between">
-            <div className="text-center flex-1">
+          <div className="relative">
+            {/* User Menu - Positioned absolutely in top right */}
+            {currentUser && (
+              <div className="absolute top-0 right-0 z-10">
+                <UserMenu
+                  user={currentUser}
+                  onOpenPersonalDashboard={() => setShowPersonalDashboard(true)}
+                  onOpenAdminPanel={() => setShowAdminPanel(true)}
+                />
+              </div>
+            )}
+            
+            {/* Centered Hero Section */}
+            <div className="text-center">
               <h1 className="text-robinhood-h1 text-robinhood-text-primary mb-2">
                 Pulse Trades
               </h1>
@@ -207,13 +219,6 @@ export default function Page() {
                 Daily trading performance leaderboard
               </p>
             </div>
-            {currentUser && (
-              <UserMenu
-                user={currentUser}
-                onOpenPersonalDashboard={() => setShowPersonalDashboard(true)}
-                onOpenAdminPanel={() => setShowAdminPanel(true)}
-              />
-            )}
           </div>
           
           {/* Leaderboard */}
