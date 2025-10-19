@@ -8,10 +8,7 @@ export async function GET(request: NextRequest) {
     const state = searchParams.get('state');
     const error = searchParams.get('error');
 
-    console.log('OAuth Callback Debug:');
-    console.log('Code:', code);
-    console.log('State:', state);
-    console.log('Error:', error);
+        // Handle OAuth callback
 
     // Handle OAuth errors
     if (error) {
@@ -41,7 +38,7 @@ export async function GET(request: NextRequest) {
         client_secret: process.env.WHOP_CLIENT_SECRET,
         code: code,
         grant_type: 'authorization_code',
-        redirect_uri: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/auth/whop/callback`,
+            redirect_uri: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/auth/callback/whop`,
       }),
     });
 

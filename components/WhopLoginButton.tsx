@@ -23,13 +23,8 @@ export default function WhopLoginButton({
 
   const handleWhopLogin = () => {
     // Get the current origin for the redirect URI
-    const redirectUri = `${window.location.origin}/api/auth/whop/callback`;
+    const redirectUri = `${window.location.origin}/api/auth/callback/whop`;
     const clientId = process.env.NEXT_PUBLIC_WHOP_CLIENT_ID;
-    
-    // Debug logging
-    console.log('OAuth Debug Info:');
-    console.log('Client ID:', clientId);
-    console.log('Redirect URI:', redirectUri);
     
     if (!clientId) {
       console.error('NEXT_PUBLIC_WHOP_CLIENT_ID is not set');
@@ -46,7 +41,6 @@ export default function WhopLoginButton({
     whopAuthUrl.searchParams.set('state', 'pulse-trades-auth');
     
     const finalUrl = whopAuthUrl.toString();
-    console.log('OAuth URL:', finalUrl);
     
     // Redirect to Whop OAuth
     window.location.href = finalUrl;

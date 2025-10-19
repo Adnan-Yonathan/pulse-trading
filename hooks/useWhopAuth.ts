@@ -78,7 +78,7 @@ export function useWhopAuth() {
       
       // Optionally call logout endpoint to revoke tokens
       try {
-        await fetch('/api/auth/whop/logout', { method: 'POST' });
+        await fetch('/api/auth/callback/whop/logout', { method: 'POST' });
       } catch (error) {
         console.warn('Logout endpoint failed:', error);
       }
@@ -89,7 +89,7 @@ export function useWhopAuth() {
 
   const refreshToken = async () => {
     try {
-      const response = await fetch('/api/auth/whop/refresh', {
+      const response = await fetch('/api/auth/callback/whop/refresh', {
         method: 'POST',
       });
 
