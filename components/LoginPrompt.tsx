@@ -2,13 +2,13 @@
 
 import { motion } from 'framer-motion';
 import { TrendingUp, Users, Trophy, BarChart3 } from 'lucide-react';
+import WhopLoginButton from './WhopLoginButton';
 
 interface LoginPromptProps {
-  onSignIn: () => void;
-  onCreateAccount: () => void;
+  onLogin: () => void;
 }
 
-export default function LoginPrompt({ onSignIn, onCreateAccount }: LoginPromptProps) {
+export default function LoginPrompt({ onLogin }: LoginPromptProps) {
   const features = [
     {
       icon: <TrendingUp className="w-6 h-6" />,
@@ -73,25 +73,18 @@ export default function LoginPrompt({ onSignIn, onCreateAccount }: LoginPromptPr
           ))}
         </div>
 
-        {/* Action Buttons */}
+        {/* Login Button */}
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.4 }}
-          className="space-y-3"
         >
-          <button
-            onClick={onSignIn}
-            className="w-full bg-robinhood-green hover:bg-robinhood-green/90 text-robinhood-black font-semibold px-8 py-4 rounded-robinhood transition-colors shadow-robinhood"
-          >
-            Sign In
-          </button>
-          <button
-            onClick={onCreateAccount}
-            className="w-full bg-robinhood-card-bg border border-robinhood-border text-robinhood-text-primary font-semibold px-8 py-4 rounded-robinhood transition-colors hover:bg-robinhood-hover"
-          >
-            Create Account
-          </button>
+          <WhopLoginButton
+            onLogin={onLogin}
+            variant="primary"
+            size="lg"
+            className="w-full"
+          />
         </motion.div>
 
         {/* Footer */}
@@ -101,7 +94,7 @@ export default function LoginPrompt({ onSignIn, onCreateAccount }: LoginPromptPr
           transition={{ delay: 0.6 }}
           className="text-robinhood-text-secondary text-sm mt-6"
         >
-          Sign in with your existing account or create a new one to start tracking your trading performance
+          Connect your Whop account to start tracking your trading performance and competing on the leaderboard
         </motion.p>
       </motion.div>
     </div>

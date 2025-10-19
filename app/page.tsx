@@ -12,22 +12,20 @@ import UserMenu from '@/components/UserMenu';
 import PersonalDashboard from '@/components/PersonalDashboard';
 import AdminPanel from '@/components/AdminPanel';
 import LoginPrompt from '@/components/LoginPrompt';
-import LoginModal from '@/components/LoginModal';
 import FullLeaderboardModal from '@/components/FullLeaderboardModal';
+import { useWhopAuth, type WhopUser } from '@/hooks/useWhopAuth';
 import { supabase, type Submission, type User } from '@/lib/supabase';
 import { 
   syncWhopUserToDatabase, 
   checkUserAdminAccess, 
   getUserTodaySubmission,
   getUserCurrentRank,
-  getUserPrestigeBadges,
-  type WhopUser 
+  getUserPrestigeBadges
 } from '@/lib/user-sync';
 
 export default function Page() {
-  // const iframeSdk = useIframeSdk();
-  const [whopUser, setWhopUser] = useState<any>(null);
-  const [whopLoading, setWhopLoading] = useState(true);
+  // Use Whop authentication hook
+  const { user: whopUser, isLoading: whopLoading, error: authError, logout: whopLogout } = useWhopAuth();
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [isSubmissionModalOpen, setIsSubmissionModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -38,55 +36,7 @@ export default function Page() {
   const [userRank, setUserRank] = useState(0);
   const [userBadges, setUserBadges] = useState<any[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [showLoginModal, setShowLoginModal] = useState(false);
   const [showFullLeaderboard, setShowFullLeaderboard] = useState(false);
-
-  // Check for existing user session
-  useEffect(() => {
-    const checkUserSession = async () => {
-      try {
-        // Check if there's a stored username in localStorage
-        const storedUsername = localStorage.getItem('pulse-trades-username');
-        if (storedUsername) {
-          try {
-            // Find user in database with timeout
-            const { data: user, error } = await Promise.race([
-              supabase
-                .from('users')
-                .select('*')
-                .eq('username', storedUsername)
-                .single(),
-              new Promise((_, reject) => 
-                setTimeout(() => reject(new Error('Database timeout')), 3000)
-              )
-            ]) as any;
-
-            if (user && !error) {
-              setWhopUser({
-                id: user.whop_user_id,
-                username: user.username,
-                name: user.username,
-                profile_image_url: user.avatar_url,
-              });
-            } else {
-              // User not found, clear stored username
-              localStorage.removeItem('pulse-trades-username');
-            }
-          } catch (dbError) {
-            console.warn('Database query failed during session check, clearing stored username:', dbError);
-            // Clear stored username if database is not available
-            localStorage.removeItem('pulse-trades-username');
-          }
-        }
-      } catch (error) {
-        console.error('Error checking user session:', error);
-      } finally {
-        setWhopLoading(false);
-      }
-    };
-
-    checkUserSession();
-  }, []);
 
   // Sync Whop user to database and set up user data
   useEffect(() => {
@@ -128,13 +78,13 @@ export default function Page() {
           if (dbUser) {
             setCurrentUser(dbUser);
 
-          // Check if user is admin (community owner)
-          // For now, check if username contains "admin" or "owner" for demo purposes
-          // In production, this would check against actual community ownership
-          const isCommunityOwner = dbUser.username.toLowerCase().includes('admin') || 
-                                  dbUser.username.toLowerCase().includes('owner') ||
-                                  dbUser.username.toLowerCase().includes('mod');
-          setIsAdmin(isCommunityOwner);
+            // Check if user is admin (community owner)
+            // For now, check if username contains "admin" or "owner" for demo purposes
+            // In production, this would check against actual community ownership
+            const isCommunityOwner = dbUser.username.toLowerCase().includes('admin') || 
+                                    dbUser.username.toLowerCase().includes('owner') ||
+                                    dbUser.username.toLowerCase().includes('mod');
+            setIsAdmin(isCommunityOwner);
 
             // Get user's current submission and rank
             const todaySubmission = await getUserTodaySubmission(dbUser.id);
@@ -330,110 +280,11 @@ export default function Page() {
     return sortedSubmissions.findIndex(s => s.id === currentSubmission.id) + 1;
   };
 
-  const handleSignIn = async (username: string) => {
-    try {
-      // Store username in localStorage for session persistence
-      localStorage.setItem('pulse-trades-username', username);
-      
-      // Create a mock user immediately to avoid blocking
-      const mockUser = {
-        id: `local-${Date.now()}`,
-        username: username,
-        name: username,
-        profile_image_url: undefined,
-      };
-      
-      setWhopUser(mockUser);
-      
-      // Try to find user in database in background (non-blocking)
-      try {
-        const { data: user, error } = await Promise.race([
-          supabase
-            .from('users')
-            .select('*')
-            .eq('username', username)
-            .single(),
-          new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Database timeout')), 3000)
-          )
-        ]) as any;
-
-        if (user && !error) {
-          // Update with real user data if found
-          setWhopUser({
-            id: user.whop_user_id,
-            username: user.username,
-            name: user.username,
-            profile_image_url: user.avatar_url,
-          });
-        }
-      } catch (dbError) {
-        console.warn('Database query failed during sign in, using mock user:', dbError);
-        // Continue with mock user
-      }
-    } catch (error) {
-      console.error('Error during sign in:', error);
-    }
-  };
-
-  const handleCreateAccount = async (username: string) => {
-    try {
-      // Store username in localStorage for session persistence
-      localStorage.setItem('pulse-trades-username', username);
-      
-      // Create a mock user immediately to avoid blocking
-      const mockUser = {
-        id: `local-${Date.now()}`,
-        username: username,
-        name: username,
-        profile_image_url: undefined,
-      };
-      
-      setWhopUser(mockUser);
-      
-      // Try to create user in database in background (non-blocking)
-      try {
-        const { data: user, error } = await Promise.race([
-          supabase
-            .from('users')
-            .insert({
-              whop_user_id: `local-${Date.now()}`,
-              username: username,
-              avatar_url: null,
-              prestige_level: 0,
-              total_wins: 0,
-            })
-            .select()
-            .single(),
-          new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Database timeout')), 3000)
-          )
-        ]) as any;
-
-        if (user && !error) {
-          // Update with real user data if created successfully
-          setWhopUser({
-            id: user.whop_user_id,
-            username: user.username,
-            name: user.username,
-            profile_image_url: user.avatar_url,
-          });
-        }
-      } catch (dbError) {
-        console.warn('Database creation failed, using mock user:', dbError);
-        // Continue with mock user
-      }
-    } catch (error) {
-      console.error('Error during account creation:', error);
-    }
-  };
-
   const handleLogout = () => {
-    // Clear stored username
-    localStorage.removeItem('pulse-trades-username');
+    // Use Whop logout
+    whopLogout();
     
     // Reset user state
-    setWhopUser(null);
     setCurrentUser(null);
     setIsAdmin(false);
     setCurrentSubmission(undefined);
@@ -441,23 +292,13 @@ export default function Page() {
     setUserBadges([]);
   };
 
-  // Show loading state with timeout
+  // Show loading state
   if (whopLoading) {
-    // Add a timeout to prevent infinite loading
-    setTimeout(() => {
-      if (whopLoading) {
-        setWhopLoading(false);
-      }
-    }, 10000); // 10 second timeout
-    
     return (
       <div className="min-h-screen bg-robinhood-black flex items-center justify-center">
         <div className="text-center">
           <div className="w-8 h-8 border-2 border-robinhood-green border-t-transparent rounded-full animate-spin mx-auto mb-4" />
           <p className="text-robinhood-text-secondary">Loading Pulse Trades...</p>
-          <p className="text-robinhood-text-secondary text-sm mt-2">
-            If this takes too long, try refreshing the page
-          </p>
         </div>
       </div>
     );
@@ -466,18 +307,7 @@ export default function Page() {
   // Show login prompt if no user
   if (!whopUser) {
     return (
-      <>
-        <LoginPrompt 
-          onSignIn={() => setShowLoginModal(true)} 
-          onCreateAccount={() => setShowLoginModal(true)} 
-        />
-        <LoginModal
-          isOpen={showLoginModal}
-          onClose={() => setShowLoginModal(false)}
-          onSignIn={handleSignIn}
-          onCreateAccount={handleCreateAccount}
-        />
-      </>
+      <LoginPrompt onLogin={() => {}} />
     );
   }
 
@@ -523,7 +353,7 @@ export default function Page() {
               >
                 View Full Leaderboard
               </button>
-            </div>
+					</div>
 				</div>
 
               {/* Leaderboard */}
@@ -533,7 +363,7 @@ export default function Page() {
                     <div className="w-6 h-6 border-2 border-robinhood-green border-t-transparent rounded-full animate-spin mx-auto mb-3" />
                     <p className="text-robinhood-text-secondary text-sm">Loading leaderboard...</p>
                   </div>
-                </div>
+				</div>
               ) : (
                 <Leaderboard 
                   submissions={submissions} 
