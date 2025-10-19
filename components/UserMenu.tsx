@@ -7,7 +7,8 @@ import {
   BarChart3, 
   Settings, 
   ChevronDown,
-  X
+  X,
+  LogOut
 } from 'lucide-react';
 import { cn, generateAvatarInitials } from '@/lib/utils';
 
@@ -20,13 +21,15 @@ interface UserMenuProps {
   isAdmin: boolean;
   onOpenPersonalDashboard: () => void;
   onOpenAdminPanel: () => void;
+  onLogout: () => void;
 }
 
 export default function UserMenu({ 
   user, 
   isAdmin,
   onOpenPersonalDashboard, 
-  onOpenAdminPanel 
+  onOpenAdminPanel,
+  onLogout
 }: UserMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -50,6 +53,16 @@ export default function UserMenu({
         setIsOpen(false);
       },
       show: isAdmin,
+    },
+    {
+      id: 'logout',
+      label: 'Logout',
+      icon: <LogOut className="w-4 h-4" />,
+      onClick: () => {
+        onLogout();
+        setIsOpen(false);
+      },
+      show: true,
     },
   ];
 

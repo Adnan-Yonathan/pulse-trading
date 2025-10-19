@@ -12,6 +12,8 @@ import UserMenu from '@/components/UserMenu';
 import PersonalDashboard from '@/components/PersonalDashboard';
 import AdminPanel from '@/components/AdminPanel';
 import LoginPrompt from '@/components/LoginPrompt';
+import LoginModal from '@/components/LoginModal';
+import FullLeaderboardModal from '@/components/FullLeaderboardModal';
 import { supabase, type Submission, type User } from '@/lib/supabase';
 import { 
   syncWhopUserToDatabase, 
@@ -36,29 +38,43 @@ export default function Page() {
   const [userRank, setUserRank] = useState(0);
   const [userBadges, setUserBadges] = useState<any[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [showFullLeaderboard, setShowFullLeaderboard] = useState(false);
 
-  // Mock user for development - replace with real Whop authentication
+  // Check for existing user session
   useEffect(() => {
-    const getUser = async () => {
+    const checkUserSession = async () => {
       try {
-        // TODO: Replace with real Whop authentication
-        // For now, simulate a logged-in user
-        const mockUser = {
-          id: 'whop-user-123',
-          username: 'trader_mike',
-          name: 'Mike Trader',
-          profile_image_url: undefined,
-        };
-        setWhopUser(mockUser);
+        // Check if there's a stored username in localStorage
+        const storedUsername = localStorage.getItem('pulse-trades-username');
+        if (storedUsername) {
+          // Find user in database
+          const { data: user, error } = await supabase
+            .from('users')
+            .select('*')
+            .eq('username', storedUsername)
+            .single();
+
+          if (user && !error) {
+            setWhopUser({
+              id: user.whop_user_id,
+              username: user.username,
+              name: user.username,
+              profile_image_url: user.avatar_url,
+            });
+          } else {
+            // User not found, clear stored username
+            localStorage.removeItem('pulse-trades-username');
+          }
+        }
       } catch (error) {
-        console.error('Error getting user:', error);
-        setWhopUser(null);
+        console.error('Error checking user session:', error);
       } finally {
         setWhopLoading(false);
       }
     };
 
-    getUser();
+    checkUserSession();
   }, []);
 
   // Sync Whop user to database and set up user data
@@ -101,12 +117,13 @@ export default function Page() {
           if (dbUser) {
             setCurrentUser(dbUser);
 
-            // Check if user is admin (company owner)
-            const companyId = process.env.NEXT_PUBLIC_WHOP_COMPANY_ID;
-            if (companyId) {
-              const adminAccess = await checkUserAdminAccess(whopUser.id, companyId);
-              setIsAdmin(adminAccess);
-            }
+          // Check if user is admin (community owner)
+          // For now, check if username contains "admin" or "owner" for demo purposes
+          // In production, this would check against actual community ownership
+          const isCommunityOwner = dbUser.username.toLowerCase().includes('admin') || 
+                                  dbUser.username.toLowerCase().includes('owner') ||
+                                  dbUser.username.toLowerCase().includes('mod');
+          setIsAdmin(isCommunityOwner);
 
             // Get user's current submission and rank
             const todaySubmission = await getUserTodaySubmission(dbUser.id);
@@ -296,6 +313,44 @@ export default function Page() {
     return sortedSubmissions.findIndex(s => s.id === currentSubmission.id) + 1;
   };
 
+  const handleLogin = async (username: string) => {
+    try {
+      // Store username in localStorage for session persistence
+      localStorage.setItem('pulse-trades-username', username);
+      
+      // Find user in database
+      const { data: user, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('username', username)
+        .single();
+
+      if (user && !error) {
+        setWhopUser({
+          id: user.whop_user_id,
+          username: user.username,
+          name: user.username,
+          profile_image_url: user.avatar_url,
+        });
+      }
+    } catch (error) {
+      console.error('Error during login:', error);
+    }
+  };
+
+  const handleLogout = () => {
+    // Clear stored username
+    localStorage.removeItem('pulse-trades-username');
+    
+    // Reset user state
+    setWhopUser(null);
+    setCurrentUser(null);
+    setIsAdmin(false);
+    setCurrentSubmission(undefined);
+    setUserRank(0);
+    setUserBadges([]);
+  };
+
   // Show loading state
   if (whopLoading || isLoading) {
 	return (
@@ -310,7 +365,16 @@ export default function Page() {
 
   // Show login prompt if no user
   if (!whopUser) {
-    return <LoginPrompt onLogin={() => window.location.reload()} />;
+    return (
+      <>
+        <LoginPrompt onLogin={() => setShowLoginModal(true)} />
+        <LoginModal
+          isOpen={showLoginModal}
+          onClose={() => setShowLoginModal(false)}
+          onLogin={handleLogin}
+        />
+      </>
+    );
   }
 
   return (
@@ -336,6 +400,7 @@ export default function Page() {
                   isAdmin={isAdmin}
                   onOpenPersonalDashboard={() => setShowPersonalDashboard(true)}
                   onOpenAdminPanel={() => setShowAdminPanel(true)}
+                  onLogout={handleLogout}
                 />
 							</div>
 						)}
@@ -345,10 +410,16 @@ export default function Page() {
               <h1 className="text-robinhood-h1 text-robinhood-text-primary mb-2">
                 Pulse Trades
               </h1>
-              <p className="text-robinhood-text-secondary">
+              <p className="text-robinhood-text-secondary mb-4">
                 Daily trading performance leaderboard
-						</p>
-					</div>
+              </p>
+              <button
+                onClick={() => setShowFullLeaderboard(true)}
+                className="bg-robinhood-card-bg hover:bg-robinhood-hover border border-robinhood-border text-robinhood-text-primary px-4 py-2 rounded-robinhood transition-colors text-sm font-medium"
+              >
+                View Full Leaderboard
+              </button>
+            </div>
 				</div>
 
           {/* Leaderboard */}
@@ -457,6 +528,13 @@ export default function Page() {
           </>
         )}
       </AnimatePresence>
+
+      {/* Full Leaderboard Modal */}
+      <FullLeaderboardModal
+        isOpen={showFullLeaderboard}
+        onClose={() => setShowFullLeaderboard(false)}
+        currentUserId={currentUser?.id}
+      />
 		</div>
 	);
 }
