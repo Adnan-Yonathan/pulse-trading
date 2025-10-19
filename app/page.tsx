@@ -330,7 +330,7 @@ export default function Page() {
     return sortedSubmissions.findIndex(s => s.id === currentSubmission.id) + 1;
   };
 
-  const handleLogin = async (username: string) => {
+  const handleSignIn = async (username: string) => {
     try {
       // Store username in localStorage for session persistence
       localStorage.setItem('pulse-trades-username', username);
@@ -368,11 +368,63 @@ export default function Page() {
           });
         }
       } catch (dbError) {
-        console.warn('Database query failed during login, using mock user:', dbError);
+        console.warn('Database query failed during sign in, using mock user:', dbError);
         // Continue with mock user
       }
     } catch (error) {
-      console.error('Error during login:', error);
+      console.error('Error during sign in:', error);
+    }
+  };
+
+  const handleCreateAccount = async (username: string) => {
+    try {
+      // Store username in localStorage for session persistence
+      localStorage.setItem('pulse-trades-username', username);
+      
+      // Create a mock user immediately to avoid blocking
+      const mockUser = {
+        id: `local-${Date.now()}`,
+        username: username,
+        name: username,
+        profile_image_url: undefined,
+      };
+      
+      setWhopUser(mockUser);
+      
+      // Try to create user in database in background (non-blocking)
+      try {
+        const { data: user, error } = await Promise.race([
+          supabase
+            .from('users')
+            .insert({
+              whop_user_id: `local-${Date.now()}`,
+              username: username,
+              avatar_url: null,
+              prestige_level: 0,
+              total_wins: 0,
+            })
+            .select()
+            .single(),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Database timeout')), 3000)
+          )
+        ]) as any;
+
+        if (user && !error) {
+          // Update with real user data if created successfully
+          setWhopUser({
+            id: user.whop_user_id,
+            username: user.username,
+            name: user.username,
+            profile_image_url: user.avatar_url,
+          });
+        }
+      } catch (dbError) {
+        console.warn('Database creation failed, using mock user:', dbError);
+        // Continue with mock user
+      }
+    } catch (error) {
+      console.error('Error during account creation:', error);
     }
   };
 
@@ -415,11 +467,15 @@ export default function Page() {
   if (!whopUser) {
     return (
       <>
-        <LoginPrompt onLogin={() => setShowLoginModal(true)} />
+        <LoginPrompt 
+          onSignIn={() => setShowLoginModal(true)} 
+          onCreateAccount={() => setShowLoginModal(true)} 
+        />
         <LoginModal
           isOpen={showLoginModal}
           onClose={() => setShowLoginModal(false)}
-          onLogin={handleLogin}
+          onSignIn={handleSignIn}
+          onCreateAccount={handleCreateAccount}
         />
       </>
     );

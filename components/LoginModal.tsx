@@ -8,15 +8,17 @@ import { supabase } from '@/lib/supabase';
 interface LoginModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onLogin: (username: string) => void;
+  onSignIn: (username: string) => void;
+  onCreateAccount: (username: string) => void;
 }
 
-export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps) {
+export default function LoginModal({ isOpen, onClose, onSignIn, onCreateAccount }: LoginModalProps) {
   const [username, setUsername] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [mode, setMode] = useState<'signin' | 'signup'>('signin');
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!username.trim()) {
@@ -43,34 +45,73 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
 
       if (existingUser) {
         // User exists, log them in
-        onLogin(username.trim());
+        onSignIn(username.trim());
         onClose();
       } else {
-        // User doesn't exist, create new user
-        const { data: newUser, error: createError } = await supabase
-          .from('users')
-          .insert({
-            whop_user_id: `local-${Date.now()}`, // Temporary ID for local users
-            username: username.trim(),
-            avatar_url: null,
-            prestige_level: 0,
-            total_wins: 0,
-          })
-          .select()
-          .single();
-
-        if (createError) {
-          console.error('Error creating user:', createError);
-          setError('Error creating account. Please try again.');
-          return;
-        }
-
-        // Log in the new user
-        onLogin(username.trim());
-        onClose();
+        setError('User not found. Please create an account or check your username.');
       }
     } catch (error) {
-      console.error('Login error:', error);
+      console.error('Sign in error:', error);
+      setError('An unexpected error occurred. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleCreateAccount = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!username.trim()) {
+      setError('Please enter a username');
+      return;
+    }
+
+    setIsLoading(true);
+    setError('');
+
+    try {
+      // Check if user already exists
+      const { data: existingUser, error: fetchError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('username', username.trim())
+        .single();
+
+      if (fetchError && fetchError.code !== 'PGRST116') {
+        console.error('Error checking user:', fetchError);
+        setError('Error checking username. Please try again.');
+        return;
+      }
+
+      if (existingUser) {
+        setError('Username already exists. Please sign in instead.');
+        return;
+      }
+
+      // Create new user
+      const { data: newUser, error: createError } = await supabase
+        .from('users')
+        .insert({
+          whop_user_id: `local-${Date.now()}`, // Temporary ID for local users
+          username: username.trim(),
+          avatar_url: null,
+          prestige_level: 0,
+          total_wins: 0,
+        })
+        .select()
+        .single();
+
+      if (createError) {
+        console.error('Error creating user:', createError);
+        setError('Error creating account. Please try again.');
+        return;
+      }
+
+      // Log in the new user
+      onCreateAccount(username.trim());
+      onClose();
+    } catch (error) {
+      console.error('Create account error:', error);
       setError('An unexpected error occurred. Please try again.');
     } finally {
       setIsLoading(false);
@@ -122,7 +163,7 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
                 <div className="flex items-center space-x-3">
                   <User className="w-6 h-6 text-robinhood-green" />
                   <h2 className="text-robinhood-h1 text-robinhood-text-primary">
-                    Join Pulse Trades
+                    {mode === 'signin' ? 'Sign In' : 'Create Account'}
                   </h2>
                 </div>
                 <button
@@ -159,8 +200,42 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
                   </div>
                 </div>
 
-                {/* Login Form */}
-                <form onSubmit={handleLogin} className="space-y-4">
+                {/* Mode Toggle */}
+                <div className="flex bg-robinhood-card-bg rounded-robinhood p-1 mb-6">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMode('signin');
+                      setError('');
+                      setUsername('');
+                    }}
+                    className={`flex-1 py-2 px-4 rounded-robinhood text-sm font-medium transition-colors ${
+                      mode === 'signin'
+                        ? 'bg-robinhood-green text-robinhood-black'
+                        : 'text-robinhood-text-secondary hover:text-robinhood-text-primary'
+                    }`}
+                  >
+                    Sign In
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMode('signup');
+                      setError('');
+                      setUsername('');
+                    }}
+                    className={`flex-1 py-2 px-4 rounded-robinhood text-sm font-medium transition-colors ${
+                      mode === 'signup'
+                        ? 'bg-robinhood-green text-robinhood-black'
+                        : 'text-robinhood-text-secondary hover:text-robinhood-text-primary'
+                    }`}
+                  >
+                    Create Account
+                  </button>
+                </div>
+
+                {/* Form */}
+                <form onSubmit={mode === 'signin' ? handleSignIn : handleCreateAccount} className="space-y-4">
                   <div>
                     <label className="block text-robinhood-text-primary font-medium mb-2">
                       Username
@@ -169,7 +244,7 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
                       type="text"
                       value={username}
                       onChange={(e) => setUsername(e.target.value)}
-                      placeholder="Enter your username"
+                      placeholder={mode === 'signin' ? 'Enter your username' : 'Choose a username'}
                       className="w-full bg-robinhood-card-bg border border-robinhood-border rounded-robinhood px-4 py-3 text-robinhood-text-primary placeholder-robinhood-text-secondary focus:outline-none focus:ring-2 focus:ring-robinhood-green focus:border-transparent"
                       disabled={isLoading}
                     />
@@ -189,12 +264,12 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
                     {isLoading ? (
                       <>
                         <div className="w-4 h-4 border-2 border-robinhood-black border-t-transparent rounded-full animate-spin" />
-                        <span>Signing in...</span>
+                        <span>{mode === 'signin' ? 'Signing in...' : 'Creating account...'}</span>
                       </>
                     ) : (
                       <>
                         <LogIn className="w-4 h-4" />
-                        <span>Sign In / Create Account</span>
+                        <span>{mode === 'signin' ? 'Sign In' : 'Create Account'}</span>
                       </>
                     )}
                   </button>
@@ -203,9 +278,19 @@ export default function LoginModal({ isOpen, onClose, onLogin }: LoginModalProps
                 {/* Info */}
                 <div className="mt-6 p-4 bg-robinhood-card-bg border border-robinhood-border rounded-robinhood">
                   <p className="text-robinhood-text-secondary text-sm">
-                    <strong className="text-robinhood-text-primary">Note:</strong> Enter your username to sign in or create a new account. 
-                    If you're a community owner, you'll automatically get admin access.
+                    <strong className="text-robinhood-text-primary">
+                      {mode === 'signin' ? 'Sign In:' : 'Create Account:'}
+                    </strong>{' '}
+                    {mode === 'signin' 
+                      ? 'Enter your existing username to access your trading dashboard and leaderboard.'
+                      : 'Choose a unique username to start tracking your trading performance and competing on the leaderboard.'
+                    }
                   </p>
+                  {mode === 'signup' && (
+                    <p className="text-robinhood-text-secondary text-sm mt-2">
+                      <strong className="text-robinhood-text-primary">Admin Access:</strong> If your username contains 'admin', 'owner', or 'mod', you'll automatically get admin privileges.
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
