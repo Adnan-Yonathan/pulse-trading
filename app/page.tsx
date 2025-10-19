@@ -38,6 +38,7 @@ export default function Page() {
   const [showPersonalDashboard, setShowPersonalDashboard] = useState(false);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [userRank, setUserRank] = useState(0);
+  const [currentLeaderboardView, setCurrentLeaderboardView] = useState<'community' | 'global'>('community');
   const [userBadges, setUserBadges] = useState<any[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
   const [showFullLeaderboard, setShowFullLeaderboard] = useState(false);
@@ -395,6 +396,7 @@ export default function Page() {
                 <Leaderboard 
                   submissions={submissions} 
                   currentUserId={currentUser?.id}
+                  onViewChange={setCurrentLeaderboardView}
                 />
               )}
         </motion.div>
@@ -504,6 +506,9 @@ export default function Page() {
         isOpen={showFullLeaderboard}
         onClose={() => setShowFullLeaderboard(false)}
         currentUserId={currentUser?.id}
+        leaderboardType={currentLeaderboardView}
+        communityId="biz_pGTqes9CAHH9yk"
+        submissions={submissions}
       />
 		</div>
 	);

@@ -11,22 +11,29 @@ interface LeaderboardProps {
   currentUserId?: string;
   communityId?: string;
   communityName?: string;
+  onViewChange?: (view: 'community' | 'global') => void;
 }
 
 export default function Leaderboard({ 
   submissions, 
   currentUserId,
   communityId = 'biz_pGTqes9CAHH9yk', // Default community ID
-  communityName = 'Community'
+  communityName = 'Community',
+  onViewChange
 }: LeaderboardProps) {
   const [currentView, setCurrentView] = useState<'community' | 'global'>('community');
+
+  const handleViewChange = (view: 'community' | 'global') => {
+    setCurrentView(view);
+    onViewChange?.(view);
+  };
 
   return (
     <div className="space-y-6">
       {/* Leaderboard Toggle */}
       <LeaderboardToggle
         currentView={currentView}
-        onViewChange={setCurrentView}
+        onViewChange={handleViewChange}
         communityName={communityName}
       />
 

@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { Trophy, TrendingUp, Globe, Clock } from 'lucide-react';
 import { cn, formatPercentage, formatTimeAgo, generateAvatarInitials, getRankColor, getPercentageColor } from '@/lib/utils';
 import type { Submission } from '@/lib/supabase';
+import ProofImageViewer from './ProofImageViewer';
 
 interface GlobalLeaderboardProps {
   submissions: Submission[];
@@ -245,6 +246,9 @@ export default function GlobalLeaderboard({
                   <th className="text-left py-4 px-6 text-robinhood-text-secondary font-medium">
                     Time
                   </th>
+                  <th className="text-left py-4 px-6 text-robinhood-text-secondary font-medium">
+                    Proof
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -318,6 +322,13 @@ export default function GlobalLeaderboard({
                           {formatTimeAgo(new Date(submission.submitted_at))}
                         </span>
                       </div>
+                    </td>
+                    <td className="py-4 px-6">
+                      <ProofImageViewer
+                        proofUrl={submission.proof_url}
+                        username={submission.user?.username || 'Unknown'}
+                        percentageGain={submission.percentage_gain}
+                      />
                     </td>
                   </motion.tr>
                 ))}

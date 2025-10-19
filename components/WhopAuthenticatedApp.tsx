@@ -47,6 +47,7 @@ export default function WhopAuthenticatedApp({
   const [userBadges, setUserBadges] = useState<any[]>([]);
   const [isAdmin, setIsAdmin] = useState(whopIsAdmin);
   const [showFullLeaderboard, setShowFullLeaderboard] = useState(false);
+  const [currentLeaderboardView, setCurrentLeaderboardView] = useState<'community' | 'global'>('community');
 
   // Sync Whop user to database and set up user data
   useEffect(() => {
@@ -353,6 +354,7 @@ export default function WhopAuthenticatedApp({
             <Leaderboard 
               submissions={submissions} 
               currentUserId={currentUser?.id}
+              onViewChange={setCurrentLeaderboardView}
             />
           )}
         </motion.div>
@@ -462,6 +464,9 @@ export default function WhopAuthenticatedApp({
         isOpen={showFullLeaderboard}
         onClose={() => setShowFullLeaderboard(false)}
         currentUserId={currentUser?.id}
+        leaderboardType={currentLeaderboardView}
+        communityId="biz_pGTqes9CAHH9yk"
+        submissions={submissions}
       />
     </div>
   );

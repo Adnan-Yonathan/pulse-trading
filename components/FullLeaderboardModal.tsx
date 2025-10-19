@@ -5,55 +5,73 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Trophy, TrendingUp, Users } from 'lucide-react';
 import { supabase, type Submission } from '@/lib/supabase';
 import { cn, formatPercentage, formatTimeAgo, generateAvatarInitials } from '@/lib/utils';
+import ProofImageViewer from './ProofImageViewer';
 
 interface FullLeaderboardModalProps {
   isOpen: boolean;
   onClose: () => void;
   currentUserId?: string;
+  leaderboardType: 'community' | 'global';
+  communityId?: string;
+  submissions: Submission[];
 }
 
 export default function FullLeaderboardModal({ 
   isOpen, 
   onClose, 
-  currentUserId 
+  currentUserId,
+  leaderboardType,
+  communityId,
+  submissions: allSubmissions
 }: FullLeaderboardModalProps) {
-  const [submissions, setSubmissions] = useState<Submission[]>([]);
+  const [filteredSubmissions, setFilteredSubmissions] = useState<Submission[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
 
-  // Fetch full leaderboard data
+  // Filter submissions based on leaderboard type and date
   useEffect(() => {
-    const fetchFullLeaderboard = async () => {
+    const filterSubmissions = () => {
       if (!isOpen) return;
       
       try {
         setIsLoading(true);
         
-        const { data, error } = await supabase
-          .from('submissions')
-          .select(`
-            *,
-            user:users(*)
-          `)
-          .eq('submission_date', selectedDate)
-          .order('percentage_gain', { ascending: false });
-
-        if (error) {
-          console.error('Error fetching full leaderboard:', error);
-          setSubmissions([]);
+        // Filter by date first
+        const dateFiltered = allSubmissions.filter(submission => 
+          submission.submission_date === selectedDate
+        );
+        
+        // Then filter by leaderboard type
+        let filtered: Submission[];
+        if (leaderboardType === 'community' && communityId) {
+          // Community leaderboard: only verified submissions from this community
+          filtered = dateFiltered.filter(submission => 
+            submission.community_id === communityId && submission.is_verified
+          );
         } else {
-          setSubmissions(data || []);
+          // Global leaderboard: all verified submissions
+          filtered = dateFiltered.filter(submission => submission.is_verified);
         }
+        
+        // Sort by percentage gain (descending) and submission time (ascending for ties)
+        const sorted = filtered.sort((a, b) => {
+          if (b.percentage_gain !== a.percentage_gain) {
+            return b.percentage_gain - a.percentage_gain;
+          }
+          return new Date(a.submitted_at).getTime() - new Date(b.submitted_at).getTime();
+        });
+        
+        setFilteredSubmissions(sorted);
       } catch (error) {
-        console.error('Error fetching full leaderboard:', error);
-        setSubmissions([]);
+        console.error('Error filtering submissions:', error);
+        setFilteredSubmissions([]);
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchFullLeaderboard();
-  }, [isOpen, selectedDate]);
+    filterSubmissions();
+  }, [isOpen, selectedDate, leaderboardType, communityId, allSubmissions]);
 
   const getRankIcon = (rank: number) => {
     switch (rank) {
@@ -105,7 +123,7 @@ export default function FullLeaderboardModal({
                 <div className="flex items-center space-x-3">
                   <TrendingUp className="w-6 h-6 text-robinhood-green" />
                   <h2 className="text-robinhood-h1 text-robinhood-text-primary">
-                    Full Leaderboard
+                    Full {leaderboardType === 'community' ? 'Community' : 'Global'} Leaderboard
                   </h2>
                 </div>
                 <button
@@ -130,7 +148,7 @@ export default function FullLeaderboardModal({
                   />
                   <div className="flex items-center space-x-2 text-robinhood-text-secondary">
                     <Users className="w-4 h-4" />
-                    <span>{submissions.length} traders</span>
+                    <span>{filteredSubmissions.length} traders</span>
                   </div>
                 </div>
               </div>
@@ -144,17 +162,17 @@ export default function FullLeaderboardModal({
                       <p className="text-robinhood-text-secondary">Loading leaderboard...</p>
                     </div>
                   </div>
-                ) : submissions.length === 0 ? (
+                ) : filteredSubmissions.length === 0 ? (
                   <div className="flex items-center justify-center h-64">
                     <div className="text-center">
                       <TrendingUp className="w-12 h-12 text-robinhood-text-secondary mx-auto mb-4" />
-                      <p className="text-robinhood-text-secondary">No submissions for this date</p>
+                      <p className="text-robinhood-text-secondary">No {leaderboardType} submissions for this date</p>
                     </div>
                   </div>
                 ) : (
                   <div className="p-6">
                     <div className="space-y-3">
-                      {submissions.map((submission, index) => {
+                      {filteredSubmissions.map((submission, index) => {
                         const rank = index + 1;
                         const isCurrentUser = submission.user_id === currentUserId;
                         
@@ -223,6 +241,15 @@ export default function FullLeaderboardModal({
                                 {submission.points} pts
                               </p>
                             </div>
+
+                            {/* Proof Image */}
+                            <div className="flex items-center">
+                              <ProofImageViewer
+                                proofUrl={submission.proof_url}
+                                username={submission.user?.username || 'Unknown'}
+                                percentageGain={submission.percentage_gain}
+                              />
+                            </div>
                           </motion.div>
                         );
                       })}
@@ -234,7 +261,7 @@ export default function FullLeaderboardModal({
               {/* Footer */}
               <div className="p-4 border-t border-robinhood-border">
                 <div className="flex items-center justify-between text-sm text-robinhood-text-secondary">
-                  <span>Showing {submissions.length} traders</span>
+                  <span>Showing {filteredSubmissions.length} traders</span>
                   <span>Updated {formatTimeAgo(new Date())}</span>
                 </div>
               </div>
