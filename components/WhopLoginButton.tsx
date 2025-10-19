@@ -24,17 +24,32 @@ export default function WhopLoginButton({
   const handleWhopLogin = () => {
     // Get the current origin for the redirect URI
     const redirectUri = `${window.location.origin}/api/auth/whop/callback`;
+    const clientId = process.env.NEXT_PUBLIC_WHOP_CLIENT_ID;
     
-    // Whop OAuth URL
-    const whopAuthUrl = new URL('https://whop.com/oauth/authorize');
-    whopAuthUrl.searchParams.set('client_id', process.env.NEXT_PUBLIC_WHOP_CLIENT_ID || '');
+    // Debug logging
+    console.log('OAuth Debug Info:');
+    console.log('Client ID:', clientId);
+    console.log('Redirect URI:', redirectUri);
+    
+    if (!clientId) {
+      console.error('NEXT_PUBLIC_WHOP_CLIENT_ID is not set');
+      alert('OAuth configuration error: Client ID not found. Please check your environment variables.');
+      return;
+    }
+    
+    // Whop OAuth URL - Updated to use the correct API endpoint
+    const whopAuthUrl = new URL('https://api.whop.com/v5/oauth/authorize');
+    whopAuthUrl.searchParams.set('client_id', clientId);
     whopAuthUrl.searchParams.set('redirect_uri', redirectUri);
     whopAuthUrl.searchParams.set('response_type', 'code');
     whopAuthUrl.searchParams.set('scope', 'read:user');
     whopAuthUrl.searchParams.set('state', 'pulse-trades-auth');
     
+    const finalUrl = whopAuthUrl.toString();
+    console.log('OAuth URL:', finalUrl);
+    
     // Redirect to Whop OAuth
-    window.location.href = whopAuthUrl.toString();
+    window.location.href = finalUrl;
   };
 
   const baseClasses = "inline-flex items-center justify-center font-semibold rounded-robinhood transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-robinhood-green";

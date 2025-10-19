@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Exchange refresh token for new access token
-    const tokenResponse = await fetch('https://whop.com/api/v5/oauth/token', {
+    const tokenResponse = await fetch('https://api.whop.com/v5/oauth/token', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

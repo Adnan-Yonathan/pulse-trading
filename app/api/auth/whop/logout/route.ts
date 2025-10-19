@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
     if (accessToken) {
       try {
         // Revoke the token with Whop
-        await fetch('https://whop.com/api/v5/oauth/revoke', {
+        await fetch('https://api.whop.com/v5/oauth/revoke', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

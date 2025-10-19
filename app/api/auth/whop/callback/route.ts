@@ -8,6 +8,11 @@ export async function GET(request: NextRequest) {
     const state = searchParams.get('state');
     const error = searchParams.get('error');
 
+    console.log('OAuth Callback Debug:');
+    console.log('Code:', code);
+    console.log('State:', state);
+    console.log('Error:', error);
+
     // Handle OAuth errors
     if (error) {
       console.error('OAuth error:', error);
@@ -26,7 +31,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Exchange authorization code for access token
-    const tokenResponse = await fetch('https://whop.com/api/v5/oauth/token', {
+    const tokenResponse = await fetch('https://api.whop.com/v5/oauth/token', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -49,7 +54,7 @@ export async function GET(request: NextRequest) {
     const { access_token, refresh_token, expires_in } = tokenData;
 
     // Fetch user data from Whop API
-    const userResponse = await fetch('https://whop.com/api/v5/me', {
+    const userResponse = await fetch('https://api.whop.com/v5/me', {
       headers: {
         'Authorization': `Bearer ${access_token}`,
         'Content-Type': 'application/json',
