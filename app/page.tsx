@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
+// import { useIframeSdk } from '@whop/react';
 import StockTicker from '@/components/StockTicker';
 import Leaderboard from '@/components/Leaderboard';
 import SubmissionModal from '@/components/SubmissionModal';
@@ -10,27 +11,102 @@ import PersonalPerformanceCard from '@/components/PersonalPerformanceCard';
 import UserMenu from '@/components/UserMenu';
 import PersonalDashboard from '@/components/PersonalDashboard';
 import AdminPanel from '@/components/AdminPanel';
-import { supabase, type Submission } from '@/lib/supabase';
+import LoginPrompt from '@/components/LoginPrompt';
+import { supabase, type Submission, type User } from '@/lib/supabase';
+import { 
+  syncWhopUserToDatabase, 
+  checkUserAdminAccess, 
+  getUserTodaySubmission,
+  getUserCurrentRank,
+  getUserPrestigeBadges,
+  type WhopUser 
+} from '@/lib/user-sync';
 
 export default function Page() {
+  // const iframeSdk = useIframeSdk();
+  const [whopUser, setWhopUser] = useState<any>(null);
+  const [whopLoading, setWhopLoading] = useState(true);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [isSubmissionModalOpen, setIsSubmissionModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [currentSubmission, setCurrentSubmission] = useState<Submission | undefined>();
   const [showPersonalDashboard, setShowPersonalDashboard] = useState(false);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
+  const [userRank, setUserRank] = useState(0);
+  const [userBadges, setUserBadges] = useState<any[]>([]);
+  const [isAdmin, setIsAdmin] = useState(false);
 
-  // Mock current user - replace with actual Whop user data
+  // Mock user for development - replace with real Whop authentication
   useEffect(() => {
-    // TODO: Get actual user from Whop SDK
-    setCurrentUser({
-      id: 'user-123',
-      username: 'trader_mike',
-      avatar_url: undefined,
-      isAdmin: false,
-    });
+    const getUser = async () => {
+      try {
+        // TODO: Replace with real Whop authentication
+        // For now, simulate a logged-in user
+        const mockUser = {
+          id: 'whop-user-123',
+          username: 'trader_mike',
+          name: 'Mike Trader',
+          profile_image_url: undefined,
+        };
+        setWhopUser(mockUser);
+      } catch (error) {
+        console.error('Error getting user:', error);
+        setWhopUser(null);
+      } finally {
+        setWhopLoading(false);
+      }
+    };
+
+    getUser();
   }, []);
+
+  // Sync Whop user to database and set up user data
+  useEffect(() => {
+    const setupUser = async () => {
+      if (!whopUser) {
+        setCurrentUser(null);
+        setIsAdmin(false);
+        return;
+      }
+
+      try {
+        // Sync Whop user to Supabase
+        const dbUser = await syncWhopUserToDatabase({
+          id: whopUser.id,
+          username: whopUser.username,
+          name: whopUser.name,
+          profile_image_url: whopUser.profile_image_url,
+        });
+
+        if (dbUser) {
+          setCurrentUser(dbUser);
+
+          // Check if user is admin (company owner)
+          const companyId = process.env.NEXT_PUBLIC_WHOP_COMPANY_ID;
+          if (companyId) {
+            const adminAccess = await checkUserAdminAccess(whopUser.id, companyId);
+            setIsAdmin(adminAccess);
+          }
+
+          // Get user's current submission and rank
+          const todaySubmission = await getUserTodaySubmission(dbUser.id);
+          setCurrentSubmission(todaySubmission);
+
+          const rank = await getUserCurrentRank(dbUser.id);
+          setUserRank(rank);
+
+          // Get user's badges
+          const badges = await getUserPrestigeBadges(dbUser.id);
+          setUserBadges(badges);
+        }
+      } catch (error) {
+        console.error('Error setting up user:', error);
+      }
+    };
+
+    setupUser();
+  }, [whopUser]);
 
   // Fetch leaderboard data
   useEffect(() => {
@@ -38,17 +114,27 @@ export default function Page() {
       try {
         setIsLoading(true);
         
-        // TODO: Replace with actual Supabase query
-        // const { data, error } = await supabase
-        //   .from('submissions')
-        //   .select(`
-        //     *,
-        //     user:users(*)
-        //   `)
-        //   .eq('submission_date', new Date().toISOString().split('T')[0])
-        //   .order('percentage_gain', { ascending: false });
+        const today = new Date().toISOString().split('T')[0];
         
-        // Mock data for now
+        const { data, error } = await supabase
+          .from('submissions')
+          .select(`
+            *,
+            user:users(*)
+          `)
+          .eq('submission_date', today)
+          .order('percentage_gain', { ascending: false });
+
+        if (error) {
+          console.error('Error fetching leaderboard:', error);
+          setSubmissions([]);
+          return;
+        }
+        
+        setSubmissions(data || []);
+        return;
+        
+        // Mock data for now (fallback)
         const mockSubmissions: Submission[] = [
           {
             id: '1',
@@ -131,6 +217,10 @@ export default function Page() {
 
   const handleSubmitPerformance = async (data: { percentage: number; proofFile?: File }) => {
     try {
+      if (!currentUser) {
+        throw new Error('User not authenticated');
+      }
+
       // TODO: Implement actual submission logic
       console.log('Submitting performance:', data);
       
@@ -173,15 +263,21 @@ export default function Page() {
     return sortedSubmissions.findIndex(s => s.id === currentSubmission.id) + 1;
   };
 
-  if (isLoading) {
-    return (
+  // Show loading state
+  if (whopLoading || isLoading) {
+	return (
       <div className="min-h-screen bg-robinhood-black flex items-center justify-center">
         <div className="text-center">
           <div className="w-8 h-8 border-2 border-robinhood-green border-t-transparent rounded-full animate-spin mx-auto mb-4" />
           <p className="text-robinhood-text-secondary">Loading Pulse Trades...</p>
-					</div>
+        </div>
 				</div>
     );
+  }
+
+  // Show login prompt if no user
+  if (!whopUser) {
+    return <LoginPrompt onLogin={() => window.location.reload()} />;
   }
 
   return (
@@ -204,11 +300,12 @@ export default function Page() {
               <div className="absolute top-0 right-0 z-10">
                 <UserMenu
                   user={currentUser}
+                  isAdmin={isAdmin}
                   onOpenPersonalDashboard={() => setShowPersonalDashboard(true)}
                   onOpenAdminPanel={() => setShowAdminPanel(true)}
                 />
-              </div>
-            )}
+							</div>
+						)}
             
             {/* Centered Hero Section */}
             <div className="text-center">
@@ -217,10 +314,10 @@ export default function Page() {
               </h1>
               <p className="text-robinhood-text-secondary">
                 Daily trading performance leaderboard
-              </p>
-            </div>
-          </div>
-          
+						</p>
+					</div>
+				</div>
+
           {/* Leaderboard */}
           <Leaderboard 
             submissions={submissions} 
@@ -232,9 +329,9 @@ export default function Page() {
       {/* Personal Performance Card */}
       <PersonalPerformanceCard
         currentSubmission={currentSubmission}
-        currentRank={getCurrentUserRank()}
+        currentRank={userRank}
         onOpenSubmission={() => setIsSubmissionModalOpen(true)}
-        isAdmin={currentUser?.isAdmin}
+        isAdmin={isAdmin}
       />
       
       {/* Submission Modal */}
@@ -279,7 +376,7 @@ export default function Page() {
                   userId={currentUser.id}
                   user={currentUser}
                   submissions={submissions}
-                  badges={[]} // TODO: Fetch actual badges
+                  badges={userBadges}
                 />
               </div>
             </motion.div>
@@ -320,7 +417,7 @@ export default function Page() {
                 <AdminPanel
                   submissions={submissions}
                   users={[currentUser]} // TODO: Fetch all users
-                  isAdmin={currentUser.isAdmin}
+                  isAdmin={isAdmin}
                 />
               </div>
             </motion.div>

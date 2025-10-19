@@ -16,14 +16,15 @@ interface UserMenuProps {
     id: string;
     username: string;
     avatar_url?: string;
-    isAdmin: boolean;
   };
+  isAdmin: boolean;
   onOpenPersonalDashboard: () => void;
   onOpenAdminPanel: () => void;
 }
 
 export default function UserMenu({ 
   user, 
+  isAdmin,
   onOpenPersonalDashboard, 
   onOpenAdminPanel 
 }: UserMenuProps) {
@@ -48,7 +49,7 @@ export default function UserMenu({
         onOpenAdminPanel();
         setIsOpen(false);
       },
-      show: user.isAdmin,
+      show: isAdmin,
     },
   ];
 
@@ -125,7 +126,7 @@ export default function UserMenu({
                       @{user.username}
                     </p>
                     <p className="text-robinhood-text-secondary text-sm">
-                      {user.isAdmin ? 'Admin' : 'Trader'}
+                      {isAdmin ? 'Admin' : 'Trader'}
                     </p>
                   </div>
                 </div>
