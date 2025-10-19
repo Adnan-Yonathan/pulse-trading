@@ -198,7 +198,19 @@ export default function Page() {
 
         if (response.ok) {
           const result = await response.json();
-          setSubmissions(prev => [result.submission, ...prev]);
+          
+          if (result.isUpdate) {
+            // Update existing submission
+            setSubmissions(prev => 
+              prev.map(sub => 
+                sub.id === result.submission.id ? result.submission : sub
+              )
+            );
+          } else {
+            // Add new submission
+            setSubmissions(prev => [result.submission, ...prev]);
+          }
+          
           setCurrentSubmission(result.submission);
           return;
         }
@@ -207,21 +219,44 @@ export default function Page() {
       }
 
       // Fallback: Create local submission if API fails
-      const newSubmission: Submission = {
-        id: `local-${Date.now()}`,
-        user_id: currentUser.id,
-        percentage_gain: data.percentage,
-        points: Math.max(0, Math.floor(data.percentage)),
-        submission_date: new Date().toISOString().split('T')[0],
-        submitted_at: new Date().toISOString(),
-        is_flagged: false,
-        is_verified: true,
-        community_id: 'biz_pGTqes9CAHH9yk',
-        user: currentUser,
-      };
+      const today = new Date().toISOString().split('T')[0];
+      const existingSubmission = submissions.find(sub => 
+        sub.user_id === currentUser.id && sub.submission_date === today
+      );
       
-      setSubmissions(prev => [newSubmission, ...prev]);
-      setCurrentSubmission(newSubmission);
+      if (existingSubmission) {
+        // Update existing local submission
+        const updatedSubmission: Submission = {
+          ...existingSubmission,
+          percentage_gain: data.percentage,
+          points: Math.max(0, Math.floor(data.percentage)),
+          submitted_at: new Date().toISOString(),
+        };
+        
+        setSubmissions(prev => 
+          prev.map(sub => 
+            sub.id === existingSubmission.id ? updatedSubmission : sub
+          )
+        );
+        setCurrentSubmission(updatedSubmission);
+      } else {
+        // Create new local submission
+        const newSubmission: Submission = {
+          id: `local-${Date.now()}`,
+          user_id: currentUser.id,
+          percentage_gain: data.percentage,
+          points: Math.max(0, Math.floor(data.percentage)),
+          submission_date: today,
+          submitted_at: new Date().toISOString(),
+          is_flagged: false,
+          is_verified: true,
+          community_id: 'biz_pGTqes9CAHH9yk',
+          user: currentUser,
+        };
+        
+        setSubmissions(prev => [newSubmission, ...prev]);
+        setCurrentSubmission(newSubmission);
+      }
       
       // TODO: Upload proof file to Supabase Storage if provided
       if (data.proofFile) {
@@ -261,13 +296,13 @@ export default function Page() {
 
   // Show loading state
   if (whopLoading) {
-    return (
+	return (
       <div className="min-h-screen bg-robinhood-black flex items-center justify-center">
         <div className="text-center">
           <div className="w-8 h-8 border-2 border-robinhood-green border-t-transparent rounded-full animate-spin mx-auto mb-4" />
           <p className="text-robinhood-text-secondary">Loading Pulse Trades...</p>
         </div>
-      </div>
+				</div>
     );
   }
 
