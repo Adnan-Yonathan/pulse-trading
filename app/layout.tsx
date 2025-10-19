@@ -1,21 +1,10 @@
 import { WhopApp } from "@whop/react/components";
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
-	variable: "--font-geist-sans",
-	subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-	variable: "--font-geist-mono",
-	subsets: ["latin"],
-});
-
 export const metadata: Metadata = {
-	title: "Whop App",
-	description: "My Whop App",
+	title: "Pulse Trades",
+	description: "Daily trading performance leaderboard for Whop communities",
 };
 
 export default function RootLayout({
@@ -23,12 +12,19 @@ export default function RootLayout({
 }: Readonly<{
 	children: React.ReactNode;
 }>) {
+	// Only wrap with WhopApp if environment variables are available
+	const hasWhopConfig = process.env.NEXT_PUBLIC_WHOP_APP_ID && process.env.WHOP_API_KEY;
+	
 	return (
 		<html lang="en" suppressHydrationWarning>
-			<body
-				className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-			>
-				<WhopApp>{children}</WhopApp>
+			<body className="antialiased">
+				{hasWhopConfig ? (
+					<WhopApp>{children}</WhopApp>
+				) : (
+					<div className="min-h-screen bg-robinhood-black">
+						{children}
+					</div>
+				)}
 			</body>
 		</html>
 	);

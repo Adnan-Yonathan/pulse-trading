@@ -6,6 +6,20 @@ export default async function ExperiencePage({
 }: {
 	params: Promise<{ experienceId: string }>;
 }) {
+	// Check if whopSdk is available
+	if (!whopSdk) {
+		return (
+			<div className="flex justify-center items-center h-screen px-8">
+				<div className="text-center">
+					<h1 className="text-xl mb-4">Pulse Trades Experience</h1>
+					<p className="text-gray-600">
+						Please configure your Whop environment variables to access the experience.
+					</p>
+				</div>
+			</div>
+		);
+	}
+
 	// The headers contains the user token
 	const headersList = await headers();
 
