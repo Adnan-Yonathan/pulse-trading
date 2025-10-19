@@ -1,11 +1,15 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
+import { X } from 'lucide-react';
 import StockTicker from '@/components/StockTicker';
 import Leaderboard from '@/components/Leaderboard';
 import SubmissionModal from '@/components/SubmissionModal';
 import PersonalPerformanceCard from '@/components/PersonalPerformanceCard';
+import UserMenu from '@/components/UserMenu';
+import PersonalDashboard from '@/components/PersonalDashboard';
+import AdminPanel from '@/components/AdminPanel';
 import { supabase, type Submission } from '@/lib/supabase';
 
 export default function Page() {
@@ -14,6 +18,8 @@ export default function Page() {
   const [isLoading, setIsLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [currentSubmission, setCurrentSubmission] = useState<Submission | undefined>();
+  const [showPersonalDashboard, setShowPersonalDashboard] = useState(false);
+  const [showAdminPanel, setShowAdminPanel] = useState(false);
 
   // Mock current user - replace with actual Whop user data
   useEffect(() => {
@@ -192,14 +198,23 @@ export default function Page() {
           className="max-w-4xl mx-auto space-y-6"
         >
           {/* Header */}
-          <div className="text-center">
-            <h1 className="text-robinhood-h1 text-robinhood-text-primary mb-2">
-              Pulse Trades
-            </h1>
-            <p className="text-robinhood-text-secondary">
-              Daily trading performance leaderboard
-					</p>
-				</div>
+          <div className="flex items-center justify-between">
+            <div className="text-center flex-1">
+              <h1 className="text-robinhood-h1 text-robinhood-text-primary mb-2">
+                Pulse Trades
+              </h1>
+              <p className="text-robinhood-text-secondary">
+                Daily trading performance leaderboard
+              </p>
+            </div>
+            {currentUser && (
+              <UserMenu
+                user={currentUser}
+                onOpenPersonalDashboard={() => setShowPersonalDashboard(true)}
+                onOpenAdminPanel={() => setShowAdminPanel(true)}
+              />
+            )}
+          </div>
           
           {/* Leaderboard */}
           <Leaderboard 
@@ -224,6 +239,89 @@ export default function Page() {
         onSubmit={handleSubmitPerformance}
         currentSubmission={currentSubmission}
       />
+
+      {/* Personal Dashboard Modal */}
+      <AnimatePresence>
+        {showPersonalDashboard && currentUser && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50"
+              onClick={() => setShowPersonalDashboard(false)}
+            />
+            <motion.div
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="fixed right-0 top-0 h-full w-full max-w-4xl bg-robinhood-black z-50 overflow-y-auto"
+            >
+              <div className="p-4">
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-robinhood-h1 text-robinhood-text-primary">
+                    Personal Dashboard
+                  </h2>
+                  <button
+                    onClick={() => setShowPersonalDashboard(false)}
+                    className="p-2 hover:bg-robinhood-hover rounded-full transition-colors"
+                  >
+                    <X className="w-6 h-6 text-robinhood-text-secondary" />
+                  </button>
+                </div>
+                <PersonalDashboard
+                  userId={currentUser.id}
+                  user={currentUser}
+                  submissions={submissions}
+                  badges={[]} // TODO: Fetch actual badges
+                />
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Admin Panel Modal */}
+      <AnimatePresence>
+        {showAdminPanel && currentUser && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50"
+              onClick={() => setShowAdminPanel(false)}
+            />
+            <motion.div
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="fixed right-0 top-0 h-full w-full max-w-6xl bg-robinhood-black z-50 overflow-y-auto"
+            >
+              <div className="p-4">
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-robinhood-h1 text-robinhood-text-primary">
+                    Admin Panel
+                  </h2>
+                  <button
+                    onClick={() => setShowAdminPanel(false)}
+                    className="p-2 hover:bg-robinhood-hover rounded-full transition-colors"
+                  >
+                    <X className="w-6 h-6 text-robinhood-text-secondary" />
+                  </button>
+                </div>
+                <AdminPanel
+                  submissions={submissions}
+                  users={[currentUser]} // TODO: Fetch all users
+                  isAdmin={currentUser.isAdmin}
+                />
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 		</div>
 	);
 }
