@@ -14,7 +14,10 @@ import AdminPanel from '@/components/AdminPanel';
 import LoginPrompt from '@/components/LoginPrompt';
 import FullLeaderboardModal from '@/components/FullLeaderboardModal';
 import { useWhopAuth, type WhopUser } from '@/hooks/useWhopAuth';
+import { useSubscription } from '@/hooks/useSubscription';
 import WhopAuthenticatedApp from '@/components/WhopAuthenticatedApp';
+import PricingModal from '@/components/PricingModal';
+import SubscriptionGate from '@/components/SubscriptionGate';
 import { supabase, type Submission, type User } from '@/lib/supabase';
 import { 
   syncWhopUserToDatabase, 
@@ -42,6 +45,10 @@ export default function Page() {
   const [userBadges, setUserBadges] = useState<any[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
   const [showFullLeaderboard, setShowFullLeaderboard] = useState(false);
+  const [showPricingModal, setShowPricingModal] = useState(false);
+
+  // Subscription management
+  const { subscription, subscribe } = useSubscription(currentUser?.id);
 
   // Sync Whop user to database and set up user data
   useEffect(() => {
@@ -294,6 +301,23 @@ export default function Page() {
     setUserBadges([]);
   };
 
+  const handleSubscribe = async (plan: 'community') => {
+    if (!currentUser) return;
+    
+    const result = await subscribe(plan, currentUser.id);
+    if (result.success) {
+      setShowPricingModal(false);
+      // Show success message or redirect
+    } else {
+      // Show error message
+      console.error('Subscription failed:', result.error);
+    }
+  };
+
+  const handleUpgradeClick = () => {
+    setShowPricingModal(true);
+  };
+
   // Show loading state
   if (whopLoading) {
 	return (
@@ -392,12 +416,21 @@ export default function Page() {
 			</div>
       
       {/* Personal Performance Card */}
-      <PersonalPerformanceCard
-        currentSubmission={currentSubmission}
-        currentRank={userRank}
-        onOpenSubmission={() => setIsSubmissionModalOpen(true)}
-        isAdmin={isAdmin}
-      />
+      {subscription.isSubscribed ? (
+        <PersonalPerformanceCard
+          currentSubmission={currentSubmission}
+          currentRank={userRank}
+          onOpenSubmission={() => setIsSubmissionModalOpen(true)}
+          isAdmin={isAdmin}
+        />
+      ) : (
+        <div className="fixed bottom-4 left-4 right-4 z-40">
+          <SubscriptionGate
+            feature="Submitting trades and tracking performance"
+            onUpgrade={handleUpgradeClick}
+          />
+        </div>
+      )}
       
       {/* Submission Modal */}
       <SubmissionModal
@@ -498,6 +531,13 @@ export default function Page() {
         leaderboardType={currentLeaderboardView}
         communityId="biz_pGTqes9CAHH9yk"
         submissions={submissions}
+      />
+
+      {/* Pricing Modal */}
+      <PricingModal
+        isOpen={showPricingModal}
+        onClose={() => setShowPricingModal(false)}
+        onSubscribe={handleSubscribe}
       />
 		</div>
 	);

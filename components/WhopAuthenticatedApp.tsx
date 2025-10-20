@@ -11,6 +11,9 @@ import UserMenu from '@/components/UserMenu';
 import PersonalDashboard from '@/components/PersonalDashboard';
 import AdminPanel from '@/components/AdminPanel';
 import FullLeaderboardModal from '@/components/FullLeaderboardModal';
+import PricingModal from '@/components/PricingModal';
+import SubscriptionGate from '@/components/SubscriptionGate';
+import { useSubscription } from '@/hooks/useSubscription';
 import { supabase, type Submission, type User } from '@/lib/supabase';
 import { 
   syncWhopUserToDatabase, 
@@ -48,6 +51,10 @@ export default function WhopAuthenticatedApp({
   const [isAdmin, setIsAdmin] = useState(whopIsAdmin);
   const [showFullLeaderboard, setShowFullLeaderboard] = useState(false);
   const [currentLeaderboardView, setCurrentLeaderboardView] = useState<'community' | 'global'>('community');
+  const [showPricingModal, setShowPricingModal] = useState(false);
+
+  // Subscription management
+  const { subscription, subscribe } = useSubscription(currentUser?.id);
 
   // Sync Whop user to database and set up user data
   useEffect(() => {
@@ -286,6 +293,23 @@ export default function WhopAuthenticatedApp({
     alert('To log out, please close this tab or navigate away from the Whop experience.');
   };
 
+  const handleSubscribe = async (plan: 'community') => {
+    if (!currentUser) return;
+    
+    const result = await subscribe(plan, currentUser.id);
+    if (result.success) {
+      setShowPricingModal(false);
+      // Show success message or redirect
+    } else {
+      // Show error message
+      console.error('Subscription failed:', result.error);
+    }
+  };
+
+  const handleUpgradeClick = () => {
+    setShowPricingModal(true);
+  };
+
   return (
     <div className="min-h-screen bg-robinhood-black">
       {/* Stock Ticker */}
@@ -350,12 +374,21 @@ export default function WhopAuthenticatedApp({
       </div>
       
       {/* Personal Performance Card */}
-      <PersonalPerformanceCard
-        currentSubmission={currentSubmission}
-        currentRank={userRank}
-        onOpenSubmission={() => setIsSubmissionModalOpen(true)}
-        isAdmin={isAdmin}
-      />
+      {subscription.isSubscribed ? (
+        <PersonalPerformanceCard
+          currentSubmission={currentSubmission}
+          currentRank={userRank}
+          onOpenSubmission={() => setIsSubmissionModalOpen(true)}
+          isAdmin={isAdmin}
+        />
+      ) : (
+        <div className="fixed bottom-4 left-4 right-4 z-40">
+          <SubscriptionGate
+            feature="Submitting trades and tracking performance"
+            onUpgrade={handleUpgradeClick}
+          />
+        </div>
+      )}
       
       {/* Submission Modal */}
       <SubmissionModal
@@ -456,6 +489,13 @@ export default function WhopAuthenticatedApp({
         leaderboardType={currentLeaderboardView}
         communityId="biz_pGTqes9CAHH9yk"
         submissions={submissions}
+      />
+
+      {/* Pricing Modal */}
+      <PricingModal
+        isOpen={showPricingModal}
+        onClose={() => setShowPricingModal(false)}
+        onSubscribe={handleSubscribe}
       />
     </div>
   );

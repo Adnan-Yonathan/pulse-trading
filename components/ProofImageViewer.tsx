@@ -17,9 +17,6 @@ export default function ProofImageViewer({
 }: ProofImageViewerProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // Debug logging
-  console.log('ProofImageViewer props:', { proofUrl, username, percentageGain });
-
   if (!proofUrl) {
     return (
       <div className="flex items-center justify-center w-8 h-8 rounded bg-robinhood-border text-robinhood-text-secondary">
@@ -32,10 +29,7 @@ export default function ProofImageViewer({
     <>
       {/* Thumbnail */}
       <button
-        onClick={() => {
-          console.log('Proof image button clicked, opening modal');
-          setIsModalOpen(true);
-        }}
+        onClick={() => setIsModalOpen(true)}
         className="relative group w-8 h-8 rounded overflow-hidden border border-robinhood-border hover:border-robinhood-green transition-colors"
         title={`View proof for ${username}'s ${percentageGain > 0 ? '+' : ''}${percentageGain.toFixed(2)}% trade`}
       >
