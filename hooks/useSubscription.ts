@@ -30,32 +30,26 @@ export function useSubscription(userId?: string) {
       }
 
       try {
-        // Check local storage first for demo purposes
-        const localSubscription = localStorage.getItem(`subscription_${userId}`);
-        if (localSubscription) {
-          const parsed = JSON.parse(localSubscription);
-          const isExpired = parsed.expiresAt && new Date(parsed.expiresAt) < new Date();
-          
+        // Fetch subscription status from database API
+        const response = await fetch(`/api/subscription/${userId}`);
+        
+        if (response.ok) {
+          const data = await response.json();
           setSubscription({
-            isSubscribed: !isExpired,
-            plan: isExpired ? 'free' : parsed.plan,
-            expiresAt: parsed.expiresAt,
+            isSubscribed: data.isSubscribed,
+            plan: data.plan,
+            expiresAt: data.expiresAt,
             isLoading: false,
           });
-          return;
+        } else {
+          // If API fails, default to free plan
+          setSubscription({
+            isSubscribed: false,
+            plan: 'free',
+            expiresAt: null,
+            isLoading: false,
+          });
         }
-
-        // TODO: Replace with actual API call to check subscription status
-        // const response = await fetch(`/api/subscription/${userId}`);
-        // const data = await response.json();
-        
-        // For now, default to free plan
-        setSubscription({
-          isSubscribed: false,
-          plan: 'free',
-          expiresAt: null,
-          isLoading: false,
-        });
       } catch (error) {
         console.error('Error checking subscription:', error);
         setSubscription({
@@ -72,27 +66,25 @@ export function useSubscription(userId?: string) {
 
   const subscribe = async (plan: 'community', userId: string) => {
     try {
-      // TODO: Replace with actual payment processing
-      // For demo purposes, simulate a successful subscription
-      const expiresAt = new Date();
-      expiresAt.setMonth(expiresAt.getMonth() + 1); // 1 month from now
-      
-      const subscriptionData = {
-        plan,
-        expiresAt: expiresAt.toISOString(),
-        subscribedAt: new Date().toISOString(),
-      };
-
-      // Store in local storage for demo
-      localStorage.setItem(`subscription_${userId}`, JSON.stringify(subscriptionData));
-
-      setSubscription({
-        isSubscribed: true,
-        plan,
-        expiresAt: expiresAt.toISOString(),
-        isLoading: false,
+      // Call /api/checkout to get Whop checkout URL
+      const response = await fetch('/api/checkout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ userId, plan })
       });
 
+      if (!response.ok) {
+        const errorData = await response.json();
+        return { success: false, error: errorData.error || 'Failed to create checkout session' };
+      }
+
+      const { checkoutUrl } = await response.json();
+      
+      // Redirect to Whop checkout
+      window.location.href = checkoutUrl;
+      
       return { success: true };
     } catch (error) {
       console.error('Error subscribing:', error);
@@ -102,9 +94,23 @@ export function useSubscription(userId?: string) {
 
   const cancelSubscription = async (userId: string) => {
     try {
-      // TODO: Replace with actual API call to cancel subscription
-      localStorage.removeItem(`subscription_${userId}`);
+      // Call API to cancel subscription
+      const response = await fetch(`/api/subscription/${userId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          status: 'cancelled'
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        return { success: false, error: errorData.error || 'Failed to cancel subscription' };
+      }
       
+      // Update local state
       setSubscription({
         isSubscribed: false,
         plan: 'free',
